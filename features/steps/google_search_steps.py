@@ -36,10 +36,12 @@ def step_navigate_to_google(context):
             loop.run_until_complete(context.world.init_browser())
             loop.run_until_complete(context.world.init_mcp())
         
-        google_page = GoogleSearchPage(context.world.page)
-        run_async(google_page.navigate(context.world.base_url))
+        # Use test data for URL if available
+        url = context.world.test_data.get_url("google") or context.world.base_url
+        google_page = GoogleSearchPage(context.world.page, context.world.config)
+        run_async(google_page.navigate(url))
         context.google_page = google_page
-        logger.info("Successfully navigated to Google")
+        logger.info(f"Successfully navigated to {url}")
     except Exception as error:
         logger.error(f"Error navigating to Google: {error}")
         raise
@@ -49,6 +51,12 @@ def step_navigate_to_google(context):
 def step_search_for_keyword(context, keyword):
     """Perform a search with the given keyword."""
     try:
+        # Try to get keyword from test data first
+        test_data_keyword = context.world.test_data.get_search_keyword(keyword.lower())
+        if test_data_keyword and test_data_keyword != keyword.lower():
+            keyword = test_data_keyword
+            logger.info(f"Using keyword from test data: {keyword}")
+        
         # Optionally fetch keyword from MCP for dynamic data
         if context.world.mcp_client and context.world.mcp_client.is_connected():
             mcp_data = run_async(
@@ -60,7 +68,7 @@ def step_search_for_keyword(context, keyword):
         
         # Perform search
         if not hasattr(context, 'google_page'):
-            context.google_page = GoogleSearchPage(context.world.page)
+            context.google_page = GoogleSearchPage(context.world.page, context.world.config)
         
         run_async(context.google_page.search(keyword))
         context.search_keyword = keyword
@@ -113,7 +121,13 @@ def step_verify_page_title_contains(context, expected_text):
         
         page_title = run_async(context.google_page.get_page_title())
         
-        # Optionally fetch validation criteria from MCP
+        # Get validation criteria from test data
+        validation_criteria = context.world.test_data.get_validation_criteria()
+        if validation_criteria.get("title_contains") and isinstance(validation_criteria["title_contains"], str):
+            expected_text = validation_criteria["title_contains"]
+            logger.info(f"Using validation criteria from test data: {expected_text}")
+        
+        # Optionally fetch validation criteria from MCP (overrides test data)
         if context.world.mcp_client and context.world.mcp_client.is_connected():
             validation_data = run_async(
                 context.world.mcp_client.fetch_dynamic_data("validation_criteria")

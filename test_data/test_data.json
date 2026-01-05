@@ -1,0 +1,29 @@
+{
+  "search_keywords": {
+    "ai": "AI",
+    "playwright": "Playwright",
+    "python": "Python",
+    "automation": "Automation"
+  },
+  "validation_criteria": {
+    "min_results": 5,
+    "title_contains": true,
+    "results_displayed": true
+  },
+  "test_users": {
+    "default": {
+      "username": "test_user",
+      "email": "test@example.com"
+    }
+  },
+  "urls": {
+    "google": "https://www.google.com",
+    "google_search": "https://www.google.com/search"
+  },
+  "timeouts": {
+    "page_load": 30000,
+    "element_wait": 10000,
+    "network_idle": 15000
+  }
+}
+

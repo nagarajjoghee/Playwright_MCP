@@ -4,6 +4,9 @@ Custom World class for Behave context management.
 import logging
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 from features.support.mcp_client import MCPClient
+from config.config_manager import ConfigManager
+from utils.test_data_loader import TestDataLoader
+from utils.report_generator import ReportGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -13,16 +16,23 @@ class CustomWorld:
     
     def __init__(self, context):
         self.context = context
+        
+        # Initialize configuration and test data
+        env = context.config.userdata.get('environment', 'dev')
+        self.config = ConfigManager(environment=env)
+        self.test_data = TestDataLoader()
+        self.report_generator = ReportGenerator()
+        
         self.browser: Browser = None
         self.browser_context: BrowserContext = None
         self.page: Page = None
         self.playwright = None
         self.mcp_client: MCPClient = None
         
-        # Configuration from behave.ini
-        self.headed = context.config.userdata.getbool('headed', False)
-        self.browser_type = context.config.userdata.get('browser', 'chromium')
-        self.base_url = context.config.userdata.get('base_url', 'https://www.google.com')
+        # Configuration from config manager (with fallback to behave.ini)
+        self.headed = not self.config.is_headless() or context.config.userdata.getbool('headed', False)
+        self.browser_type = self.config.get_browser()
+        self.base_url = self.config.get_base_url()
     
     async def init_browser(self):
         """Initialize Playwright browser."""
@@ -42,8 +52,9 @@ class CustomWorld:
                 args=['--no-sandbox', '--disable-dev-shm-usage'] if not self.headed else []
             )
             
+            viewport = self.config.get_viewport()
             self.browser_context = await self.browser.new_context(
-                viewport={'width': 1280, 'height': 720},
+                viewport=viewport,
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             )
             

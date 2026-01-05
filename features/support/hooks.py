@@ -3,8 +3,10 @@ Behave hooks for test setup and teardown.
 """
 import logging
 import os
+from datetime import datetime
 from behave import before_all, after_all, before_scenario, after_scenario
 from playwright.sync_api import sync_playwright
+from config.config_manager import ConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +17,12 @@ def before_all_hook(context):
     logger.info("=" * 80)
     logger.info("Starting test suite...")
     logger.info("=" * 80)
+    
+    # Load configuration
+    env = context.config.userdata.get('environment', 'dev')
+    context.config_manager = ConfigManager(environment=env)
+    logger.info(f"Environment: {context.config_manager.environment}")
+    logger.info(f"Base URL: {context.config_manager.get_base_url()}")
     
     # Ensure reports directory exists
     os.makedirs('reports', exist_ok=True)
@@ -39,12 +47,26 @@ def after_all_hook(context):
     logger.info("Test suite completed.")
     logger.info("=" * 80)
     
-    # Generate summary report if MCP client was used
-    if hasattr(context, 'world') and context.world and context.world.mcp_client:
-        results = context.world.mcp_client.get_test_results()
-        if results:
-            logger.info(f"Total test results collected: {len(results)}")
-            # Could send final summary to MCP here
+    # Generate timestamped reports
+    if hasattr(context, 'world') and context.world:
+        # Generate HTML report
+        if hasattr(context.world, 'report_generator'):
+            test_results = []
+            if context.world.mcp_client:
+                test_results = context.world.mcp_client.get_test_results()
+            
+            if test_results:
+                html_report = context.world.report_generator.generate_html_report(
+                    test_results, "Google Search Automation"
+                )
+                json_report = context.world.report_generator.generate_json_report(test_results)
+                logger.info(f"Reports generated: {html_report}, {json_report}")
+        
+        # Generate summary report if MCP client was used
+        if context.world.mcp_client:
+            results = context.world.mcp_client.get_test_results()
+            if results:
+                logger.info(f"Total test results collected: {len(results)}")
 
 
 @before_scenario

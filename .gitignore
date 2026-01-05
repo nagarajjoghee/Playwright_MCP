@@ -42,8 +42,8 @@ reports/*.log
 reports/*.out
 reports/*.xml
 reports/*.json
-# Keep HTML reports
-!reports/*.html
+# Keep HTML reports with timestamps
+!reports/*_*.html
 
 # Playwright
 .playwright/
@@ -57,3 +57,5 @@ screenshots/
 *.png
 *.jpg
 
+# Test data (if contains sensitive info, uncomment)
+# test_data/

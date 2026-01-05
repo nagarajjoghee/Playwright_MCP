@@ -4,11 +4,13 @@ Page Object Model for Google Search page.
 import logging
 from playwright.async_api import Page, Locator
 from typing import List
+from pages.base_page import BasePage
+from config.config_manager import ConfigManager
 
 logger = logging.getLogger(__name__)
 
 
-class GoogleSearchPage:
+class GoogleSearchPage(BasePage):
     """Page Object Model for Google Search."""
     
     # Locators
@@ -19,19 +21,19 @@ class GoogleSearchPage:
     COOKIE_CONSENT = 'button:has-text("Accept"), button:has-text("I agree"), #L2AGLb, button:has-text("Accept all")'
     NEXT_BUTTON = 'a#pnnext'
     
-    def __init__(self, page: Page):
-        self.page = page
+    def __init__(self, page: Page, config: ConfigManager = None):
+        super().__init__(page, config)
     
-    async def navigate(self, url: str = "https://www.google.com"):
+    async def navigate(self, url: str = None):
         """Navigate to Google search page."""
         try:
-            await self.page.goto(url, wait_until='networkidle', timeout=30000)
-            logger.info(f"Navigated to {url}")
+            target_url = url or self.base_url
+            await super().navigate(target_url, wait_until='networkidle')
             
             # Handle cookie consent if present
             await self._handle_cookie_consent()
         except Exception as error:
-            logger.error(f"Error navigating to {url}: {error}")
+            logger.error(f"Error navigating to {target_url}: {error}")
             raise
     
     async def _handle_cookie_consent(self):
@@ -139,7 +141,7 @@ class GoogleSearchPage:
     async def get_page_title(self) -> str:
         """Get the page title."""
         try:
-            title = await self.page.title()
+            title = await super().get_title()
             logger.info(f"Page title: {title}")
             return title
         except Exception as error:
