@@ -26,7 +26,8 @@ class ReportGenerator:
         return f"{base_name}_{self.timestamp}.{extension}"
     
     def generate_html_report(self, test_results: List[Dict[str, Any]], 
-                            feature_name: str = "Test Report") -> str:
+                            feature_name: str = "Test Report",
+                            screenshots: List[Dict[str, Any]] = None) -> str:
         """Generate HTML report with timestamp."""
         filename = self.get_timestamped_filename("test_report", "html")
         filepath = self.reports_dir / filename
@@ -160,6 +161,27 @@ class ReportGenerator:
             color: #666;
             border-top: 1px solid #e0e0e0;
         }}
+        .step-screenshots {{
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }}
+        .screenshot-item {{
+            margin: 15px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #e0e0e0;
+        }}
+        .screenshot-image {{
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-top: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }}
     </style>
 </head>
 <body>
@@ -195,7 +217,7 @@ class ReportGenerator:
 
         <div class="content">
             <h2>Test Results</h2>
-            {self._generate_test_results_html(test_results)}
+            {self._generate_test_results_html(test_results, screenshots)}
         </div>
 
         <div class="footer">
@@ -207,8 +229,9 @@ class ReportGenerator:
 </html>"""
         return html
     
-    def _generate_test_results_html(self, test_results: List[Dict[str, Any]]) -> str:
-        """Generate HTML for test results."""
+    def _generate_test_results_html(self, test_results: List[Dict[str, Any]], 
+                                    screenshots: List[Dict[str, Any]] = None) -> str:
+        """Generate HTML for test results with screenshots."""
         html = ""
         for result in test_results:
             status = result.get("status", "unknown")
@@ -216,13 +239,34 @@ class ReportGenerator:
             duration = result.get("duration", 0)
             details = result.get("details", {})
             
+            # Find related screenshots
+            step_screenshots = []
+            if screenshots:
+                step_screenshots = [s for s in screenshots if name.lower() in s.get('step', '').lower() or 
+                                  s.get('scenario', '').lower() in name.lower()]
+            
             html += f"""
             <div class="test-result {status}">
                 <h3>{name}</h3>
                 <p><strong>Status:</strong> {status.upper()}</p>
                 <p><strong>Duration:</strong> {duration}s</p>
                 <pre>{json.dumps(details, indent=2)}</pre>
-            </div>
             """
+            
+            # Add screenshots if available
+            if step_screenshots:
+                html += "<div class='step-screenshots'><h4>Screenshots:</h4>"
+                for screenshot in step_screenshots:
+                    relative_path = screenshot.get('relative_path', screenshot.get('path', ''))
+                    step_name = screenshot.get('step', 'Step')
+                    html += f"""
+                    <div class='screenshot-item'>
+                        <p><strong>{step_name}</strong></p>
+                        <img src='{relative_path}' alt='{step_name}' class='screenshot-image' />
+                    </div>
+                    """
+                html += "</div>"
+            
+            html += "</div>"
         return html
 

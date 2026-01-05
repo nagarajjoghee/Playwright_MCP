@@ -53,9 +53,9 @@ reports/*.json
 Thumbs.db
 
 # Project specific
-screenshots/
-*.png
-*.jpg
+# Keep screenshots in reports directory
+!reports/screenshots/
+reports/screenshots/*.png
 
 # Test data (if contains sensitive info, uncomment)
 # test_data/

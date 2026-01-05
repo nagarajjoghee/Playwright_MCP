@@ -4,7 +4,7 @@ Behave hooks for test setup and teardown.
 import logging
 import os
 from datetime import datetime
-from behave import before_all, after_all, before_scenario, after_scenario
+from behave import before_all, after_all, before_scenario, after_scenario, after_step
 from playwright.sync_api import sync_playwright
 from config.config_manager import ConfigManager
 
@@ -24,8 +24,12 @@ def before_all_hook(context):
     logger.info(f"Environment: {context.config_manager.environment}")
     logger.info(f"Base URL: {context.config_manager.get_base_url()}")
     
-    # Ensure reports directory exists
+    # Ensure reports and screenshots directories exist
     os.makedirs('reports', exist_ok=True)
+    os.makedirs('reports/screenshots', exist_ok=True)
+    
+    # Initialize screenshot list for the test run
+    context.screenshots = []
     
     # Install Playwright browsers if not already installed
     try:
@@ -56,11 +60,15 @@ def after_all_hook(context):
                 test_results = context.world.mcp_client.get_test_results()
             
             if test_results:
+                # Get screenshots from context
+                screenshots = getattr(context, 'screenshots', [])
                 html_report = context.world.report_generator.generate_html_report(
-                    test_results, "Google Search Automation"
+                    test_results, "Google Search Automation", screenshots
                 )
                 json_report = context.world.report_generator.generate_json_report(test_results)
                 logger.info(f"Reports generated: {html_report}, {json_report}")
+                if screenshots:
+                    logger.info(f"Report includes {len(screenshots)} screenshots")
         
         # Generate summary report if MCP client was used
         if context.world.mcp_client:
@@ -75,6 +83,11 @@ def before_scenario_hook(context, scenario):
     logger.info(f"\n{'=' * 80}")
     logger.info(f"Scenario: {scenario.name}")
     logger.info(f"{'=' * 80}")
+    
+    # Initialize screenshot list for scenario
+    if not hasattr(context, 'screenshots'):
+        context.screenshots = []
+    context.scenario_screenshots = []
     
     # Initialize custom world
     if not hasattr(context, 'world'):
@@ -152,4 +165,62 @@ def after_scenario_hook(context, scenario):
     loop.run_until_complete(context.world.cleanup())
     
     logger.info(f"Scenario {scenario.status}: {scenario.name}")
+    
+    # Store scenario screenshots in context
+    if hasattr(context, 'scenario_screenshots'):
+        context.screenshots.extend(context.scenario_screenshots)
+
+
+@after_step
+def after_step_hook(context, step):
+    """Capture screenshot after each step, especially for navigation steps."""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    # Only capture screenshots if page is available and step passed
+    if hasattr(context, 'world') and context.world and context.world.page:
+        try:
+            # Create screenshot filename based on step
+            step_name = step.name.replace(' ', '_').replace('"', '').replace('/', '_')[:50]
+            scenario_name = step.scenario.name.replace(' ', '_')[:30] if hasattr(step, 'scenario') else 'unknown'
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            
+            screenshot_filename = f"screenshot_{scenario_name}_{step_name}_{timestamp}.png"
+            screenshot_path = os.path.join('reports', 'screenshots', screenshot_filename)
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(screenshot_path), exist_ok=True)
+            
+            # Take screenshot
+            loop.run_until_complete(
+                context.world.page.screenshot(path=screenshot_path, full_page=True)
+            )
+            
+            # Store screenshot info
+            screenshot_info = {
+                'step': step.name,
+                'step_type': step.keyword,
+                'scenario': scenario_name,
+                'path': screenshot_path,
+                'timestamp': timestamp,
+                'status': step.status if hasattr(step, 'status') else 'unknown'
+            }
+            
+            if not hasattr(context, 'scenario_screenshots'):
+                context.scenario_screenshots = []
+            context.scenario_screenshots.append(screenshot_info)
+            
+            if not hasattr(context, 'screenshots'):
+                context.screenshots = []
+            context.screenshots.append(screenshot_info)
+            
+            logger.info(f"Screenshot captured for step: {step.name[:50]}")
+            logger.debug(f"Screenshot saved: {screenshot_path}")
+            
+        except Exception as error:
+            logger.warning(f"Could not capture screenshot for step: {error}")
 

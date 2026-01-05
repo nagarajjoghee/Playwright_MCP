@@ -18,12 +18,25 @@ class BasePage:
         self.timeout = self.config.get_timeout()
         self.base_url = self.config.get_base_url()
     
-    async def navigate(self, url: str = None, wait_until: str = "networkidle"):
-        """Navigate to a URL."""
+    async def navigate(self, url: str = None, wait_until: str = "networkidle", take_screenshot: bool = True):
+        """Navigate to a URL and optionally take a screenshot."""
         target_url = url or self.base_url
         try:
             await self.page.goto(target_url, wait_until=wait_until, timeout=self.timeout)
             logger.info(f"Navigated to {target_url}")
+            
+            # Take screenshot after navigation if enabled
+            if take_screenshot:
+                try:
+                    from datetime import datetime
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    # Extract domain name for filename
+                    domain = target_url.replace('https://', '').replace('http://', '').split('/')[0].replace('.', '_')
+                    screenshot_path = f"reports/screenshots/navigation_{domain}_{timestamp}.png"
+                    await self.page.screenshot(path=screenshot_path, full_page=True)
+                    logger.info(f"Navigation screenshot saved: {screenshot_path}")
+                except Exception as screenshot_error:
+                    logger.warning(f"Could not capture navigation screenshot: {screenshot_error}")
         except Exception as error:
             logger.error(f"Error navigating to {target_url}: {error}")
             raise
