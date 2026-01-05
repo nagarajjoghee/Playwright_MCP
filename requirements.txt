@@ -1,0 +1,6 @@
+behave>=1.2.6
+playwright>=1.40.0
+mcp>=0.1.0
+pytest>=7.4.0
+pytest-html>=3.2.0
+
